@@ -9,6 +9,8 @@ import (
 
 type Config struct {
 	Port                    string
+	AppEnviroment           string
+	SessionSecret           string
 	GoogleOAuthClientID     string
 	GoogleOAuthClientSecret string
 	GoogleOAuthRedirectURL  string
@@ -21,12 +23,22 @@ func Load() *Config {
 	}
 
 	port := os.Getenv("PORT")
+	appEnviroment := os.Getenv("APP_ENVIRONMENT")
+	sessionSecret := os.Getenv("SESSION_SECRET")
 	googleOAuthClientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	googleOAuthClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	googleOAuthRedirectURL := os.Getenv("GOOGLE_OAUTH_REDIRECT_URL")
 
 	if port == "" {
 		port = "8080"
+	}
+
+	if appEnviroment == "" {
+		appEnviroment = "development"
+	}
+
+	if sessionSecret == "" {
+		log.Fatal("env var 'SESSION_SECRET' is not set")
 	}
 
 	if googleOAuthClientID == "" {
@@ -43,6 +55,8 @@ func Load() *Config {
 
 	return &Config{
 		Port:                    port,
+		AppEnviroment:           appEnviroment,
+		SessionSecret:           sessionSecret,
 		GoogleOAuthClientID:     googleOAuthClientID,
 		GoogleOAuthClientSecret: googleOAuthClientSecret,
 		GoogleOAuthRedirectURL:  googleOAuthRedirectURL,
