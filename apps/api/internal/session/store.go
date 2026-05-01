@@ -41,15 +41,23 @@ func (s *Store) Set(w http.ResponseWriter, r *http.Request, tokenData *TokenData
 func (s *Store) Get(r *http.Request) (*TokenData, error) {
 	session, err := s.store.Get(r, "session")
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 	if session.IsNew {
 		return nil, nil
 	}
-	// TODO: add a validation for session_id and user_id
+	sessionID, ok := session.Values["session_id"].(string)
+	if !ok || sessionID == "" {
+		return nil, nil
+	}
+	userID, ok := session.Values["user_id"].(string)
+	if !ok || userID == "" {
+		return nil, nil
+	}
+
 	tokenData := &TokenData{
-		SessionID: session.Values["session_id"].(string),
-		UserID:    session.Values["user_id"].(string),
+		SessionID: sessionID,
+		UserID:    userID,
 	}
 	return tokenData, nil
 }
@@ -57,7 +65,10 @@ func (s *Store) Get(r *http.Request) (*TokenData, error) {
 func (s *Store) Delete(w http.ResponseWriter, r *http.Request) error {
 	session, err := s.store.Get(r, "session")
 	if err != nil {
-		return err
+		session, err = s.store.New(r, "session")
+		if err != nil {
+			return err
+		}
 	}
 	session.Options.MaxAge = -1
 	return s.store.Save(r, w, session)

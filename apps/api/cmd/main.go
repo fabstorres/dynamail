@@ -8,6 +8,7 @@ import (
 
 	"github.com/fabstorres/dynamail/apps/api/internal/auth"
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
+	"github.com/fabstorres/dynamail/apps/api/internal/database"
 	"github.com/fabstorres/dynamail/apps/api/internal/session"
 )
 
@@ -21,14 +22,22 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 
+	// Database
+	db, err := database.NewClient(cfg)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
 	sessionStore := session.NewStore(cfg)
 
-	authHandler := auth.NewHandler(cfg, sessionStore)
+	authHandler := auth.NewHandler(cfg, sessionStore, db)
 
 	// AUTH api routes
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/login", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
+		r.Post("/logout", authHandler.Logout)
 	})
 
 	http.ListenAndServe(":"+cfg.Port, r)

@@ -1,14 +1,20 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
+	"github.com/fabstorres/dynamail/apps/api/internal/database"
 	"github.com/fabstorres/dynamail/apps/api/internal/session"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -23,8 +29,11 @@ var gmailScopes = []string{
 }
 
 type AuthHandler struct {
-	oauthConfig *oauth2.Config
-	sessions    *session.Store
+	oauthConfig            *oauth2.Config
+	sessions               *session.Store
+	db                     *database.DatabaseClient
+	secureStateCookie      bool
+	authSuccessRedirectURL string
 }
 
 func generateState() (string, error) {
@@ -35,7 +44,7 @@ func generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func NewHandler(cfg *config.Config, sessions *session.Store) *AuthHandler {
+func NewHandler(cfg *config.Config, sessions *session.Store, db *database.DatabaseClient) *AuthHandler {
 	return &AuthHandler{
 		oauthConfig: &oauth2.Config{
 			ClientID:     cfg.GoogleOAuthClientID,
@@ -44,7 +53,10 @@ func NewHandler(cfg *config.Config, sessions *session.Store) *AuthHandler {
 			RedirectURL:  cfg.GoogleOAuthRedirectURL,
 			Scopes:       gmailScopes,
 		},
-		sessions: sessions,
+		sessions:               sessions,
+		db:                     db,
+		secureStateCookie:      cfg.AppEnvironment != "development",
+		authSuccessRedirectURL: cfg.AuthSuccessRedirectURL,
 	}
 }
 
@@ -62,7 +74,7 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   ah.secureStateCookie,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -76,9 +88,19 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie("oauth_state")
 	state := r.URL.Query().Get("state")
-	if err != nil || subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(state)) != 1 {
+	if err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		log.Println(err.Error())
+		log.Println("oauth callback rejected: missing state cookie")
+		return
+	}
+	if state == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		log.Println("oauth callback rejected: missing state parameter")
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(state)) != 1 {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		log.Println("oauth callback rejected: state mismatch")
 		return
 	}
 
@@ -87,28 +109,120 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		log.Println("code not found")
+		log.Println("oauth callback rejected: code not found")
 		return
 	}
 
-	// TODO: get token and create a session
-	_, err = ah.oauthConfig.Exchange(r.Context(), code)
+	token, err := ah.oauthConfig.Exchange(r.Context(), code)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	userInfo, err := ah.fetchUserInfo(r.Context(), token)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	userID, err := ah.db.CreateUser(userInfo.Email, userInfo.Name)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	sessionID, err := ah.db.CreateSession(userID, token.AccessToken, token.RefreshToken, token.Expiry.String())
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	err = ah.sessions.Set(w, r, &session.TokenData{
+		SessionID: sessionID,
+		UserID:    userID,
+	})
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	http.Redirect(w, r, ah.authSuccessRedirectURL, http.StatusTemporaryRedirect)
 }
 
 func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// data, ok := ah.sessions.Get(r)
-	// TODO: revoke access token when user database is made
+	data, err := ah.sessions.Get(r)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	if err == nil && data != nil && data.SessionID != "" {
+		dbSession, err := ah.db.GetSessionByID(data.SessionID)
+		if err == nil {
+			err = revokeToken(r.Context(), dbSession.AccessToken)
+			if err != nil {
+				log.Println("failed to revoke token:", err.Error())
+			}
+			if err := ah.db.DeleteSession(dbSession.ID); err != nil {
+				log.Println(err.Error())
+			}
+		} else {
+			log.Println(err.Error())
+		}
+	}
+
 	if err := ah.sessions.Delete(w, r); err != nil {
 		http.Error(w, "failed to clear session", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func revokeToken(ctx context.Context, accessToken string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://oauth2.googleapis.com/revoke?token="+accessToken, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("token revoke returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+type UserInfo struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+func (ah *AuthHandler) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*UserInfo, error) {
+	client := ah.oauthConfig.Client(ctx, token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("userinfo returned %d", resp.StatusCode)
+	}
+
+	var info UserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, err
+	}
+
+	return &info, nil
 }
