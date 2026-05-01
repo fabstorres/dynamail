@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
+	"github.com/fabstorres/dynamail/apps/api/internal/session"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -23,6 +24,7 @@ var gmailScopes = []string{
 
 type AuthHandler struct {
 	oauthConfig *oauth2.Config
+	sessions    *session.Store
 }
 
 func generateState() (string, error) {
@@ -33,7 +35,7 @@ func generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func NewHandler(cfg *config.Config) *AuthHandler {
+func NewHandler(cfg *config.Config, sessions *session.Store) *AuthHandler {
 	return &AuthHandler{
 		oauthConfig: &oauth2.Config{
 			ClientID:     cfg.GoogleOAuthClientID,
@@ -42,6 +44,7 @@ func NewHandler(cfg *config.Config) *AuthHandler {
 			RedirectURL:  cfg.GoogleOAuthRedirectURL,
 			Scopes:       gmailScopes,
 		},
+		sessions: sessions,
 	}
 }
 
@@ -97,4 +100,15 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// data, ok := ah.sessions.Get(r)
+	// TODO: revoke access token when user database is made
+	if err := ah.sessions.Delete(w, r); err != nil {
+		http.Error(w, "failed to clear session", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

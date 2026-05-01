@@ -8,6 +8,7 @@ import (
 
 	"github.com/fabstorres/dynamail/apps/api/internal/auth"
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
+	"github.com/fabstorres/dynamail/apps/api/internal/session"
 )
 
 func main() {
@@ -20,7 +21,9 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 
-	authHandler := auth.NewHandler(cfg)
+	sessionStore := session.NewStore(cfg)
+
+	authHandler := auth.NewHandler(cfg, sessionStore)
 
 	// AUTH api routes
 	r.Route("/auth", func(r chi.Router) {
