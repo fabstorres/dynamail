@@ -30,8 +30,8 @@ var gmailScopes = []string{
 
 type AuthHandler struct {
 	oauthConfig            *oauth2.Config
-	sessions               *session.Store
-	db                     *database.DatabaseClient
+	sessions               session.SessionService
+	db                     database.DatabaseService
 	secureStateCookie      bool
 	authSuccessRedirectURL string
 }
@@ -44,7 +44,7 @@ func generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func NewHandler(cfg *config.Config, sessions *session.Store, db *database.DatabaseClient) *AuthHandler {
+func NewHandler(cfg *config.Config, sessions session.SessionService, db database.DatabaseService) *AuthHandler {
 	return &AuthHandler{
 		oauthConfig: &oauth2.Config{
 			ClientID:     cfg.GoogleOAuthClientID,
@@ -134,14 +134,14 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := ah.db.CreateSession(userID, token.AccessToken, token.RefreshToken, token.Expiry.String())
+	sessionID, err := ah.db.CreateSession(userID, token.AccessToken, token.RefreshToken, token.Expiry)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
 
-	err = ah.sessions.Set(w, r, &session.TokenData{
+	err = ah.sessions.SetSession(w, r, &session.TokenData{
 		SessionID: sessionID,
 		UserID:    userID,
 	})
@@ -155,7 +155,7 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	data, err := ah.sessions.Get(r)
+	data, err := ah.sessions.GetSession(r)
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -166,7 +166,7 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println("failed to revoke token:", err.Error())
 			}
-			if err := ah.db.DeleteSession(dbSession.ID); err != nil {
+			if err := ah.db.DeleteSessionByID(dbSession.ID); err != nil {
 				log.Println(err.Error())
 			}
 		} else {
@@ -174,7 +174,7 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := ah.sessions.Delete(w, r); err != nil {
+	if err := ah.sessions.DeleteSession(w, r); err != nil {
 		http.Error(w, "failed to clear session", http.StatusInternalServerError)
 		return
 	}

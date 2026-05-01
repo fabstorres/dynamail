@@ -11,12 +11,7 @@ type Store struct {
 	store *sessions.CookieStore
 }
 
-type TokenData struct {
-	SessionID string
-	UserID    string
-}
-
-func NewStore(cfg *config.Config) *Store {
+func NewStore(cfg *config.Config) SessionService {
 	s := sessions.NewCookieStore([]byte(cfg.SessionSecret))
 	s.Options = &sessions.Options{
 		Path:     "/",
@@ -28,7 +23,7 @@ func NewStore(cfg *config.Config) *Store {
 	return &Store{store: s}
 }
 
-func (s *Store) Set(w http.ResponseWriter, r *http.Request, tokenData *TokenData) error {
+func (s *Store) SetSession(w http.ResponseWriter, r *http.Request, tokenData *TokenData) error {
 	session, err := s.store.Get(r, "session")
 	if err != nil {
 		return err
@@ -38,7 +33,7 @@ func (s *Store) Set(w http.ResponseWriter, r *http.Request, tokenData *TokenData
 	return s.store.Save(r, w, session)
 }
 
-func (s *Store) Get(r *http.Request) (*TokenData, error) {
+func (s *Store) GetSession(r *http.Request) (*TokenData, error) {
 	session, err := s.store.Get(r, "session")
 	if err != nil {
 		return nil, nil
@@ -62,7 +57,7 @@ func (s *Store) Get(r *http.Request) (*TokenData, error) {
 	return tokenData, nil
 }
 
-func (s *Store) Delete(w http.ResponseWriter, r *http.Request) error {
+func (s *Store) DeleteSession(w http.ResponseWriter, r *http.Request) error {
 	session, err := s.store.Get(r, "session")
 	if err != nil {
 		session, err = s.store.New(r, "session")
