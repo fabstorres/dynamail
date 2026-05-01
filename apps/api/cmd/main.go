@@ -28,5 +28,5 @@ func main() {
 		r.Get("/callback", authHandler.Callback)
 	})
 
-	http.ListenAndServe(":3000", r)
+	http.ListenAndServe(":"+cfg.Port, r)
 }
