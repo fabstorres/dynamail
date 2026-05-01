@@ -22,7 +22,7 @@ func NewStore(cfg *config.Config) *Store {
 		Path:     "/",
 		MaxAge:   86400 * 7, // 7 days
 		HttpOnly: true,
-		Secure:   cfg.AppEnviroment != "development",
+		Secure:   cfg.AppEnvironment != "development",
 		SameSite: http.SameSiteLaxMode,
 	}
 	return &Store{store: s}

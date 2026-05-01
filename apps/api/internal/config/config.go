@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	Port                    string
-	AppEnviroment           string
+	AppEnvironment          string
 	SessionSecret           string
 	GoogleOAuthClientID     string
 	GoogleOAuthClientSecret string
@@ -23,7 +23,7 @@ func Load() *Config {
 	}
 
 	port := os.Getenv("PORT")
-	appEnviroment := os.Getenv("APP_ENVIRONMENT")
+	appEnvironment := os.Getenv("APP_ENVIRONMENT")
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	googleOAuthClientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	googleOAuthClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
@@ -33,8 +33,8 @@ func Load() *Config {
 		port = "8080"
 	}
 
-	if appEnviroment == "" {
-		appEnviroment = "development"
+	if appEnvironment == "" {
+		appEnvironment = "development"
 	}
 
 	if sessionSecret == "" {
@@ -55,7 +55,7 @@ func Load() *Config {
 
 	return &Config{
 		Port:                    port,
-		AppEnviroment:           appEnviroment,
+		AppEnvironment:          appEnvironment,
 		SessionSecret:           sessionSecret,
 		GoogleOAuthClientID:     googleOAuthClientID,
 		GoogleOAuthClientSecret: googleOAuthClientSecret,
