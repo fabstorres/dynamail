@@ -105,7 +105,6 @@ func (dc *DatabaseClient) GetUserByEmail(email string) (*User, error) {
 }
 
 func (dc *DatabaseClient) CreateSession(userID, accessToken, refreshToken string, expiry time.Time) (string, error) {
-	// TODO: Sanitize inputs
 	id := generateID()
 	_, err := dc.db.Exec(`
 		INSERT INTO sessions (id, user_id, access_token, refresh_token, expiry)
@@ -155,7 +154,6 @@ func (dc *DatabaseClient) GetSessionByUserID(userID string) ([]*Session, error) 
 }
 
 func (dc *DatabaseClient) DeleteSessionByID(id string) error {
-	// TODO: Sanitize inputs
 	_, err := dc.db.Exec(`
 		DELETE FROM sessions
 		WHERE id = ?
