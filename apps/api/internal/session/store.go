@@ -36,7 +36,7 @@ func (s *Store) SetSession(w http.ResponseWriter, r *http.Request, tokenData *To
 func (s *Store) GetSession(r *http.Request) (*TokenData, error) {
 	session, err := s.store.Get(r, "session")
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	if session.IsNew {
 		return nil, nil
