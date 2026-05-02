@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
 	"golang.org/x/oauth2"
@@ -50,7 +51,11 @@ func (g *GoogleOAuthService) Revoke(ctx context.Context, token *oauth2.Token) er
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	var httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
