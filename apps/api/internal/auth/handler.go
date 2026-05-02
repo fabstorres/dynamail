@@ -80,10 +80,10 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie("oauth_state")
 
-	error := r.URL.Query().Get("error")
-	if error != "" {
+	oauthErr := r.URL.Query().Get("error")
+	if oauthErr != "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		log.Println("oauth callback rejected: " + error)
+		log.Println("oauth callback rejected: " + oauthErr)
 		return
 	}
 
