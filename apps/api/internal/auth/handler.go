@@ -119,11 +119,17 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := ah.db.CreateUser(userInfo.Email, userInfo.Name)
+	var userID string
+	existingUser, err := ah.db.GetUserByEmail(userInfo.Email)
 	if err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
+		userID, err = ah.db.CreateUser(userInfo.Email, userInfo.Email)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		userID = existingUser.ID
 	}
 
 	sessionID, err := ah.db.CreateSession(userID, token.AccessToken, token.RefreshToken, token.Expiry)
