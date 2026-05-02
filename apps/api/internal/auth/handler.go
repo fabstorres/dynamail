@@ -79,7 +79,7 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie("oauth_state")
-
+	http.SetCookie(w, &http.Cookie{Name: "oauth_state", MaxAge: -1, Path: "/"})
 	oauthErr := r.URL.Query().Get("error")
 	if oauthErr != "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -103,8 +103,6 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		log.Println("oauth callback rejected: state mismatch")
 		return
 	}
-
-	http.SetCookie(w, &http.Cookie{Name: "oauth_state", MaxAge: -1, Path: "/"})
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
