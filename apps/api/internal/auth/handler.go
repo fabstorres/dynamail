@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/fabstorres/dynamail/apps/api/internal/session"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 var gmailScopes = []string{
@@ -29,7 +27,7 @@ var gmailScopes = []string{
 }
 
 type AuthHandler struct {
-	oauthConfig            *oauth2.Config
+	oauth                  OAuthService
 	sessions               session.SessionService
 	db                     database.DatabaseService
 	secureStateCookie      bool
@@ -46,13 +44,7 @@ func generateState() (string, error) {
 
 func NewHandler(cfg *config.Config, sessions session.SessionService, db database.DatabaseService) *AuthHandler {
 	return &AuthHandler{
-		oauthConfig: &oauth2.Config{
-			ClientID:     cfg.GoogleOAuthClientID,
-			ClientSecret: cfg.GoogleOAuthClientSecret,
-			Endpoint:     google.Endpoint,
-			RedirectURL:  cfg.GoogleOAuthRedirectURL,
-			Scopes:       gmailScopes,
-		},
+		oauth:                  NewGoogleOAuthService(*cfg),
 		sessions:               sessions,
 		db:                     db,
 		secureStateCookie:      cfg.AppEnvironment != "development",
@@ -78,7 +70,7 @@ func (ah *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	oauthURL := ah.oauthConfig.AuthCodeURL(state,
+	oauthURL := ah.oauth.AuthCodeURL(state,
 		oauth2.AccessTypeOffline,
 		oauth2.ApprovalForce)
 
@@ -113,7 +105,7 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := ah.oauthConfig.Exchange(r.Context(), code)
+	token, err := ah.oauth.Exchange(r.Context(), code)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		log.Println(err.Error())
@@ -162,7 +154,7 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if err == nil && data != nil && data.SessionID != "" {
 		dbSession, err := ah.db.GetSessionByID(data.SessionID)
 		if err == nil {
-			err = revokeToken(r.Context(), dbSession.AccessToken)
+			err = ah.oauth.Revoke(r.Context(), &oauth2.Token{AccessToken: dbSession.AccessToken})
 			if err != nil {
 				log.Println("failed to revoke token:", err.Error())
 			}
@@ -182,33 +174,13 @@ func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func revokeToken(ctx context.Context, accessToken string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://oauth2.googleapis.com/revoke?token="+accessToken, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("token revoke returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
-}
-
 type UserInfo struct {
 	Email string `json:"email"`
 	Name  string `json:"name"`
 }
 
 func (ah *AuthHandler) fetchUserInfo(ctx context.Context, token *oauth2.Token) (*UserInfo, error) {
-	client := ah.oauthConfig.Client(ctx, token)
+	client := ah.oauth.Client(ctx, token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
 		return nil, err
