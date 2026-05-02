@@ -41,6 +41,7 @@ func main() {
 		r.Post("/logout", authHandler.Logout)
 	})
 
+	// TODO: move to listen and serve tls for production or handle x-forwarded-proto
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatal(err)
 	}

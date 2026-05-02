@@ -130,7 +130,7 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	var userID string
 	existingUser, err := ah.db.GetUserByEmail(userInfo.Email)
 	if err != nil {
-		userID, err = ah.db.CreateUser(userInfo.Email, userInfo.Email)
+		userID, err = ah.db.CreateUser(userInfo.Email, userInfo.Name)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			log.Println(err.Error())
@@ -160,6 +160,7 @@ func (ah *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, ah.authSuccessRedirectURL, http.StatusTemporaryRedirect)
 }
 
+// TODO: ensure same site lax when frontend is scaffolded
 func (ah *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	data, err := ah.sessions.GetSession(r)
 	if err != nil {
