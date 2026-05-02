@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -40,5 +41,7 @@ func main() {
 		r.Post("/logout", authHandler.Logout)
 	})
 
-	http.ListenAndServe(":"+cfg.Port, r)
+	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
+		log.Fatal(err)
+	}
 }
