@@ -10,6 +10,7 @@ import (
 	"github.com/fabstorres/dynamail/apps/api/internal/auth"
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
 	"github.com/fabstorres/dynamail/apps/api/internal/database"
+	"github.com/fabstorres/dynamail/apps/api/internal/handler"
 	"github.com/fabstorres/dynamail/apps/api/internal/session"
 )
 
@@ -39,6 +40,12 @@ func main() {
 		r.Get("/login", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
 		r.Post("/logout", authHandler.Logout)
+	})
+
+	userHandler := handler.NewUserHandler(cfg, sessionStore, db)
+
+	r.Route("/user", func(r chi.Router) {
+		r.Get("/me", userHandler.Me)
 	})
 
 	// TODO: move to listen and serve tls for production or handle x-forwarded-proto
