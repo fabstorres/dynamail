@@ -17,6 +17,7 @@ type OAuthService interface {
 	Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error)
 	Client(ctx context.Context, token *oauth2.Token) *http.Client
 	Revoke(ctx context.Context, token *oauth2.Token) error
+	RefreshToken(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error)
 }
 
 type GoogleOAuthService struct {
@@ -43,6 +44,11 @@ func (g *GoogleOAuthService) Exchange(ctx context.Context, code string, opts ...
 
 func (g *GoogleOAuthService) Client(ctx context.Context, token *oauth2.Token) *http.Client {
 	return g.client.Client(ctx, token)
+}
+
+func (g *GoogleOAuthService) RefreshToken(ctx context.Context, token *oauth2.Token) (*oauth2.Token, error) {
+	ts := g.client.TokenSource(ctx, token)
+	return ts.Token()
 }
 
 func (g *GoogleOAuthService) Revoke(ctx context.Context, token *oauth2.Token) error {
