@@ -24,7 +24,7 @@ type GoogleOAuthService struct {
 	client *oauth2.Config
 }
 
-func NewGoogleOAuthService(cfg config.Config) *GoogleOAuthService {
+func NewGoogleOAuthService(cfg *config.Config) *GoogleOAuthService {
 	return &GoogleOAuthService{client: &oauth2.Config{
 		ClientID:     cfg.GoogleOAuthClientID,
 		ClientSecret: cfg.GoogleOAuthClientSecret,
