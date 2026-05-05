@@ -2,8 +2,11 @@
   "name": "dynamail",
   "private": true,
   "workspaces": [
-    "/apps/*"
+    "apps/*"
   ],
+  "dependencies": {
+    "nitro": "npm:nitro-nightly@latest"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   }
