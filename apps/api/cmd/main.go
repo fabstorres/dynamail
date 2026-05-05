@@ -11,6 +11,7 @@ import (
 	"github.com/fabstorres/dynamail/apps/api/internal/config"
 	"github.com/fabstorres/dynamail/apps/api/internal/database"
 	"github.com/fabstorres/dynamail/apps/api/internal/handler"
+	dynamail "github.com/fabstorres/dynamail/apps/api/internal/middleware"
 	"github.com/fabstorres/dynamail/apps/api/internal/session"
 )
 
@@ -33,7 +34,8 @@ func main() {
 
 	sessionStore := session.NewStore(cfg)
 
-	authHandler := auth.NewHandler(cfg, sessionStore, db)
+	googleOAuthService := auth.NewGoogleOAuthService(cfg)
+	authHandler := auth.NewHandler(cfg, sessionStore, db, googleOAuthService)
 
 	// AUTH api routes
 	r.Route("/auth", func(r chi.Router) {
@@ -42,9 +44,11 @@ func main() {
 		r.Post("/logout", authHandler.Logout)
 	})
 
+	sessionAuthMiddleware := dynamail.NewSessionAuthMiddleware(sessionStore, db, googleOAuthService)
 	userHandler := handler.NewUserHandler(cfg, sessionStore, db)
 
 	r.Route("/user", func(r chi.Router) {
+		r.Use(sessionAuthMiddleware.Handle)
 		r.Get("/me", userHandler.Me)
 	})
 

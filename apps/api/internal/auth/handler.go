@@ -42,9 +42,9 @@ func generateState() (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func NewHandler(cfg *config.Config, sessions session.SessionService, db database.DatabaseService) *AuthHandler {
+func NewHandler(cfg *config.Config, sessions session.SessionService, db database.DatabaseService, oauth OAuthService) *AuthHandler {
 	return &AuthHandler{
-		oauth:                  NewGoogleOAuthService(*cfg),
+		oauth:                  oauth,
 		sessions:               sessions,
 		db:                     db,
 		secureStateCookie:      cfg.AppEnvironment != "development",

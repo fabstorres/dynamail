@@ -12,12 +12,17 @@ import (
 )
 
 func TestLoginSetsStateCookieAndRedirects(t *testing.T) {
+	oauthSvc := auth.NewGoogleOAuthService(config.Config{
+		GoogleOAuthClientID:     "client-id",
+		GoogleOAuthClientSecret: "client-secret",
+		GoogleOAuthRedirectURL:  "http://example.com/auth/callback",
+	})
 	handler := auth.NewHandler(&config.Config{
 		GoogleOAuthClientID:     "client-id",
 		GoogleOAuthClientSecret: "client-secret",
 		GoogleOAuthRedirectURL:  "http://example.com/auth/callback",
 		AppEnvironment:          "development",
-	}, nil, nil)
+	}, nil, nil, oauthSvc)
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/login", nil)
 	rec := httptest.NewRecorder()
@@ -40,12 +45,17 @@ func TestLoginSetsStateCookieAndRedirects(t *testing.T) {
 }
 
 func TestLoginStateCookieMatchesRedirectState(t *testing.T) {
+	oauthSvc := auth.NewGoogleOAuthService(config.Config{
+		GoogleOAuthClientID:     "client-id",
+		GoogleOAuthClientSecret: "client-secret",
+		GoogleOAuthRedirectURL:  "http://example.com/auth/callback",
+	})
 	handler := auth.NewHandler(&config.Config{
 		GoogleOAuthClientID:     "client-id",
 		GoogleOAuthClientSecret: "client-secret",
 		GoogleOAuthRedirectURL:  "http://example.com/auth/callback",
 		AppEnvironment:          "development",
-	}, nil, nil)
+	}, nil, nil, oauthSvc)
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/login", nil)
 	rec := httptest.NewRecorder()
