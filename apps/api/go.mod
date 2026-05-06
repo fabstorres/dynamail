@@ -4,6 +4,7 @@ go 1.25.9
 
 require (
 	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-chi/cors v1.2.2
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.4.0
 	golang.org/x/oauth2 v0.36.0
@@ -12,7 +13,6 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/go-chi/cors v1.2.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
