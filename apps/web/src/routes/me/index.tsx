@@ -17,7 +17,6 @@ function RouteComponent() {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
         }
-        console.log(res.body)
         const json = await res.json()
         setData(json)
       } catch (err) {
