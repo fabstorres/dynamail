@@ -55,10 +55,16 @@ func main() {
 
 	sessionAuthMiddleware := dynamail.NewSessionAuthMiddleware(sessionStore, db, googleOAuthService)
 	userHandler := handler.NewUserHandler(cfg, sessionStore, db)
+	threadHandler := &handler.ThreadHandler{}
 
 	r.Route("/user", func(r chi.Router) {
 		r.Use(sessionAuthMiddleware.Handle)
 		r.Get("/me", userHandler.Me)
+	})
+
+	r.Route("/threads", func(r chi.Router) {
+		r.Use(sessionAuthMiddleware.Handle)
+		r.Get("/", threadHandler.List)
 	})
 
 	// TODO: move to listen and serve tls for production or handle x-forwarded-proto
