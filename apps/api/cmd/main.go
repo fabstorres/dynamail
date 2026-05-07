@@ -57,6 +57,7 @@ func main() {
 	userHandler := handler.NewUserHandler(cfg, sessionStore, db)
 	threadHandler := handler.NewThreadHandler()
 	messageHandler := handler.NewMessageHandler()
+	labelHandler := handler.NewLabelHandler()
 
 	r.Route("/user", func(r chi.Router) {
 		r.Use(sessionAuthMiddleware.Handle)
@@ -78,6 +79,14 @@ func main() {
 		r.Post("/send", messageHandler.Send)
 		r.Post("/{id}/reply", messageHandler.Reply)
 		r.Post("/{id}/forward", messageHandler.Forward)
+	})
+
+	r.Route("/labels", func(r chi.Router) {
+		r.Use(sessionAuthMiddleware.Handle)
+		r.Get("/", labelHandler.List)
+		r.Post("/", labelHandler.Create)
+		r.Patch("/{id}", labelHandler.Update)
+		r.Delete("/{id}", labelHandler.Delete)
 	})
 
 	// TODO: move to listen and serve tls for production or handle x-forwarded-proto
