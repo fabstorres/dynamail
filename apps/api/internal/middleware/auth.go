@@ -12,6 +12,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const CtxOAuthToken = "oauth_token"
+
 type AuthMiddleware interface {
 	Handle(next http.Handler) http.Handler
 }
